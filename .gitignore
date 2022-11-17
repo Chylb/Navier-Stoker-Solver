@@ -398,5 +398,4 @@ FodyWeavers.xsd
 *.sln.iml
 
 eigen-3.4.0
-imgui
-stb_image
+imgui.ini

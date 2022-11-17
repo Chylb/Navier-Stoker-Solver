@@ -5,16 +5,18 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include <thread>
-
+#include "Gui.h"
 #include "Shader.h"
 
-
+#include <thread>
+#include <chrono>
 #include <iostream>
 #include <vector>
+#include <algorithm>
+#include <corecrt_math_defines.h>
 
 #include <Eigen/Dense>
-#include <corecrt_math_defines.h>
+#include <stb_image/stb_image.h>
 
 using namespace Eigen;
 
@@ -39,6 +41,9 @@ REAL alpha = 0.9;
 REAL omega = 1;
 REAL t = 0;
 int n = 0;
+int numPressureIterations = 0;
+float realUpdateDt = 0.1;
+auto lastTickTime = std::chrono::high_resolution_clock::now();
 
 REAL re = 1;
 REAL epsilon = 1e-5;
@@ -64,10 +69,12 @@ GLuint buildArrow();
 GLuint buildPressureTexture();
 GLuint buildPressureQuad();
 std::pair<GLuint, unsigned int> buildVelocity(GLuint arrowVAO);
+void processInput();
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
-	glViewport(0, 0, width, height);
+	int min = std::min(width, height);
+	glViewport(width - min, 0, min, min);
 }
 
 int main()
@@ -76,6 +83,7 @@ int main()
 	if (!window) {
 		return -1;
 	}
+	Gui::Init(window);
 
 	//glEnable(GL_DEPTH_TEST);
 	//glEnable(GL_CULL_FACE);
@@ -91,12 +99,18 @@ int main()
 
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 	while (!glfwWindowShouldClose(window)) {
-		int numPressureIterations = doSimulationStep();
-		t += dt;
-		n++;
+		auto now = std::chrono::high_resolution_clock::now();
+		if (now - lastTickTime >= std::chrono::milliseconds((int) (1000 * realUpdateDt))) {
+			numPressureIterations = doSimulationStep();
+			t += dt;
+			n++;
 
+			processInput();
+			lastTickTime = now;
+		}
+		
 		//begin
-		glClearColor(0.2f, 0.6f, 1.0f, 1.0f);
+		glClearColor(0, 0, 0, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		GLuint texture = buildPressureTexture();
@@ -118,11 +132,14 @@ int main()
 		glDeleteTextures(1, &texture);
 		glDeleteBuffers(1, &buffer);
 
+		Gui::RenderWindow(window);
+
 		//end
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
 
+	Gui::Terminate();
 	glfwTerminate();
 }
 
@@ -193,8 +210,8 @@ void setBoundaryConditions()
 
 void setSpecificBoundaryConditions()
 {
-	U.topRows(1) = 1;
-	P.topRows(1) = 1; //todo 0 or 1
+	//U.topRows(1) = 1;
+	//P.topRows(1) = 1; //todo 0 or 1
 	//P.bottomRows(1) = 0;
 }
 
@@ -370,6 +387,20 @@ GLuint buildPressureTexture() {
 	glGenTextures(1, &texture);
 	glBindTexture(GL_TEXTURE_2D, texture);
 	int width = 42, height = 42;
+
+	/*
+	int width, height, nrChannels;
+	stbi_set_flip_vertically_on_load(true);
+	unsigned char* data = stbi_load("res/rent.bmp", &width, &height, &nrChannels, 1);
+	float* data2 = new float[width * height];
+	for (int i = 0; i < width * height; i++) {
+		data2[i] = data[i] / 55.0;
+	}
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, (void*)data2);
+	stbi_image_free(data);
+	delete[] data2;
+	*/
+
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, (void*)P.data());
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -452,4 +483,28 @@ std::pair<GLuint, unsigned int>  buildVelocity(GLuint arrowVAO) {
 	glBindVertexArray(0);
 
 	return { buffer, modelMatrices.size() };
+}
+
+void processInput() {
+	if (ImGui::GetIO().WantCaptureMouse) {
+		return;
+	}
+
+	auto windowSize = ImGui::GetMainViewport()->Size;
+	auto absMousePos = ImGui::GetMousePos();
+	auto relX = absMousePos.x / windowSize.x;
+	auto relY = absMousePos.y / windowSize.y;
+
+	int i = relY * height;
+	int j = relX * width;
+
+	if (ImGui::IsMouseDown(0)) {
+		if (Gui::s_tool == Tool::PRESSURE_NEGATIVE) {
+			P(i, j) -= 0.1;
+			//printf("%.1f \n", P(i, j));
+		}
+		else if (Gui::s_tool == Tool::PRESSURE_POSITIVE) {
+			P(i, j) += 0.1;
+		}
+	}
 }
