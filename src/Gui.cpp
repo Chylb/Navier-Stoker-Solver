@@ -19,6 +19,17 @@ extern REAL alpha;
 extern REAL tau;
 extern REAL omega;
 
+template <typename Enumeration>
+auto as_integer(Enumeration const value)
+-> typename std::underlying_type<Enumeration>::type
+{
+	return static_cast<typename std::underlying_type<Enumeration>::type>(value);
+}
+
+BoundaryCondition Gui::getBoundary_condition() {
+	return s_boundary_condition;
+}
+
 void Gui::Init(GLFWwindow* window)
 {
 	IMGUI_CHECKVERSION();
@@ -88,6 +99,32 @@ void Gui::RenderWindow(GLFWwindow* window)
 		ImGui::DragFloat("omega", &omega, 0.01f, 0, 2);
 		ImGui::PopItemWidth();
 	}
+	ImGui::Text("Choose boundary condtions: %s", boundaryNames[as_integer(s_boundary_condition)]);
+	if (ImGui::BeginTable("9x9_radio_table", 2))
+	{
+		for (int i = 0; i < 4; i++)
+		{
+			ImGui::TableNextColumn();
+			if (ImGui::RadioButton(boundaryNames[i], &state.selected_radio, i))
+			{
+				if (i == 0) {
+					s_boundary_condition = BoundaryCondition::FREE_SLIP;
+				}
+				else if (i  == 1) {
+					s_boundary_condition = BoundaryCondition::NO_SLIP;
+				}
+				else if (i == 2) {
+					s_boundary_condition = BoundaryCondition::OUTFLOW;
+				}
+				else {
+					s_boundary_condition = BoundaryCondition::PERIODIC;
+				}
+				//std::cout << row << ";" << col << std::endl;
+			}
+		}
+		ImGui::EndTable();
+	}
+
 
 	/*ImGui::Checkbox("ImGui demo window", &s_showDemoWindow);
 	if (s_showDemoWindow) {
@@ -102,4 +139,5 @@ void Gui::RenderWindow(GLFWwindow* window)
 	ImGui::EndFrame();
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
 }

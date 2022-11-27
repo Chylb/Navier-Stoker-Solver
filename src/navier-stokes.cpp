@@ -24,6 +24,7 @@ static const unsigned int SCR_WIDTH = 800, SCR_HEIGHT = 600;
 
 #define REAL float
 
+
 int it_max = 150;
 constexpr int nx = 40;
 constexpr int ny = 40;
@@ -197,15 +198,41 @@ void computeDeltaT()
 void setBoundaryConditions()
 {
 	// something maybe wrong with 
-	U.topRows(1) = U.block(1, 0, 1, ny);
-	V.topRows(1) = 0;
-	U.bottomRows(1) = U.block(nx, 0, 1, ny);
-	V.bottomRows(1) = 0;
+	if (Gui::getBoundary_condition() == BoundaryCondition::FREE_SLIP) {
+		U.topRows(1) = U.block(1, 0, 1, ny);
+		V.topRows(1) = 0;
+		U.bottomRows(1) = U.block(nx, 0, 1, ny);
+		V.bottomRows(1) = 0;
 
-	U.leftCols(1) = 0;
-	V.leftCols(1) = V.block(0, 1, nx, 1);
-	U.rightCols(1) = 0;
-	V.rightCols(1) = V.block(0, ny, nx, 1);
+		U.leftCols(1) = 0;
+		V.leftCols(1) = V.block(0, 1, nx, 1);
+		U.rightCols(1) = 0;
+		V.rightCols(1) = V.block(0, ny, nx, 1);
+	}
+	else if (Gui::getBoundary_condition() == BoundaryCondition::NO_SLIP) {
+		U.topRows(1) = - U.block(1, 0, 1, ny);
+		V.topRows(1) = 0;
+		U.bottomRows(1) = - U.block(nx, 0, 1, ny);
+		V.bottomRows(1) = 0;
+
+		U.leftCols(1) = 0;
+		V.leftCols(1) = - V.block(0, 1, nx, 1);
+		U.rightCols(1) = 0;
+		V.rightCols(1) = - V.block(0, ny, nx, 1);
+
+	}
+	else if (Gui::getBoundary_condition() == BoundaryCondition::OUTFLOW) {
+		U.topRows(1) = U.block(1, 0, 1, ny);
+		V.topRows(1) = V.block(1, 0, 1, ny);
+		U.bottomRows(1) = U.block(nx, 0, 1, ny);
+		V.bottomRows(1) = V.block(nx, 0, 1, ny);
+
+		U.leftCols(1) = U.block(0, 1, nx, 1);
+		V.leftCols(1) = V.block(0, 1, nx, 1);
+		U.rightCols(1) = U.block(0, ny, nx, 1);
+		V.rightCols(1) = V.block(0, ny, nx, 1);
+	}
+
 }
 
 void setSpecificBoundaryConditions()
